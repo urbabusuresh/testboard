@@ -1,0 +1,187 @@
+
+      <!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8"/>
+          <title>Consolidated Test Report</title>
+          <meta name="viewport" content="width=device-width,initial-scale=1"/>
+          <style>
+      body { font-family: -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial; color: #111827; margin: 0; padding: 18px; }
+      .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+      .title { font-size:20px; font-weight:700; }
+      .meta { font-size:12px; color:#6b7280; }
+      .cards { display:flex; gap:12px; flex-wrap:wrap; margin: 12px 0 18px; }
+      .card { background:white; border: 1px solid #e6e9ee; padding:12px; border-radius:8px; min-width:140px; box-shadow:0 1px 2px rgba(0,0,0,0.02); }
+      .card .value { font-size:18px; font-weight:700; }
+      .section { margin-top:18px; }
+      h2 { font-size:16px; margin:4px 0 8px; }
+      table { width:100%; border-collapse:collapse; font-size:11.5px; }
+      th, td { padding:8px 6px; border-bottom:1px solid #edf2f7; text-align:left; }
+      th { background:#f8fafc; font-weight:600; font-size:12px; color:#111827; }
+      .small { font-size:11px; color:#475569; }
+      .row { display:flex; gap:12px; align-items:flex-start; }
+      .col { flex:1; }
+      .chart { background:white; border:1px solid #e6e9ee; padding:8px; border-radius:8px; }
+      .muted { color:#6b7280; font-size:12px; }
+    </style>
+        </head>
+        <body>
+          <div class="header">
+            <div>
+              <div class="title">Consolidated Test Report</div>
+              <div class="meta">Project: 1  • Run: 2 • Generated: 2025-10-24T14:12:23.161Z</div>
+              <div class="muted small">Date Range: N/A — N/A</div>
+            </div>
+            <div class="small muted">Quality Index: <strong>0.33</strong></div>
+          </div>
+
+          <div class="cards">
+            <div class="card">
+              <div class="small muted">Total Executions</div>
+              <div class="value">3</div>
+            </div>
+            <div class="card">
+              <div class="small muted">Distinct Testcases</div>
+              <div class="value">1</div>
+            </div>
+            <div class="card">
+              <div class="small muted">Passed</div>
+              <div class="value">1 (33.33%)</div>
+            </div>
+            <div class="card">
+              <div class="small muted">Failed</div>
+              <div class="value">0 (0.00%)</div>
+            </div>
+            <div class="card">
+              <div class="small muted">Flaky Tests</div>
+              <div class="value">1</div>
+            </div>
+            <div class="card">
+              <div class="small muted">Requirements Covered</div>
+              <div class="value">1</div>
+            </div>
+          </div>
+
+          <div class="section row">
+            <div class="col chart">
+              <h2>Daily Executions (Passed vs Failed)</h2>
+              <canvas id="chartDaily" height="220"></canvas>
+              <div class="muted small">Daily execution and pass/failure breakdown</div>
+            </div>
+
+            <div class="col">
+              <div class="chart">
+                <h2>Top Executors (by executions)</h2>
+                <canvas id="chartUsers" height="220"></canvas>
+              </div>
+
+              <div class="chart" style="margin-top:12px">
+                <h2>Environment Breakdown</h2>
+                <canvas id="chartEnv" height="180"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <h2>Top Flaky Testcases</h2>
+            <table>
+              <thead><tr><th>Testcase ID</th><th>Distinct Statuses</th></tr></thead>
+              <tbody>
+                <tr><td>5</td><td>3</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="section">
+            <h2>Top Failing Testcases (by fail rate)</h2>
+            <table>
+              <thead><tr><th>Testcase ID</th><th>Executions</th><th>Failed</th><th>Fail %</th></tr></thead>
+              <tbody>
+                <tr><td>5</td><td>3</td><td>0</td><td>0.00%</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="section">
+            <h2>Aggregated Bugs (top 5)</h2>
+            <div class="muted small">Comma-separated bug ids aggregated from executions</div>
+            <div style="margin-top:8px">1, 4, 5, 200, 500</div>
+          </div>
+
+          <div class="section">
+            <h2>Per-User Summary (top 50)</h2>
+            <table>
+              <thead><tr><th>Executor</th><th>Total</th><th>Passed</th><th>Failed</th><th>Pass %</th></tr></thead>
+              <tbody>
+                <tr><td>1</td><td>2</td><td>1</td><td>0</td><td>50.00%</td></tr><tr><td>2</td><td>1</td><td>0</td><td>0</td><td>0.00%</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="section">
+            <h2>Environment Matrix (summary)</h2>
+            <table>
+              <thead><tr><th>Env OS</th><th>Browser</th><th>Total</th><th>Passed</th><th>Failed</th><th>Pass %</th></tr></thead>
+              <tbody>
+                <tr><td>chrome</td><td>UNKNOWN</td><td>3</td><td>1</td><td>0</td><td>33.33%</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div style="height:24px"></div>
+          <script>
+      // inject Chart.js from CDN
+      (function () {
+        window.__CHARTS_RENDERED__ = false;
+        function loadScript(src){ return new Promise((res, rej) => {
+          const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s);
+        });}
+        function drawAll() {
+          try {
+            // Daily executions (stacked)
+            const ctxd = document.getElementById('chartDaily').getContext('2d');
+            new Chart(ctxd, {
+              type: 'bar',
+              data: {
+                labels: ["2025-10-03"],
+                datasets: [
+                  { label: 'Passed', data: [1], backgroundColor: '#10b981' },
+                  { label: 'Failed', data: [0], backgroundColor: '#ef4444' }
+                ]
+              },
+              options: { responsive: true, plugins: { legend: { position: 'top' } }, scales: { x: { stacked: true }, y: { stacked: true } } }
+            });
+
+            // Per user totals
+            const ctxu = document.getElementById('chartUsers').getContext('2d');
+            new Chart(ctxu, {
+              type: 'bar',
+              data: { labels: ["1","2"], datasets: [{ label: 'Executions', data: [2,1], backgroundColor: '#3b82f6' }]},
+              options: { indexAxis: 'y', responsive:true, plugins:{legend:{display:false}}}
+            });
+
+            // Env chart
+            const ctxe = document.getElementById('chartEnv').getContext('2d');
+            new Chart(ctxe, {
+              type: 'doughnut',
+              data: { labels: ["chrome / UNKNOWN"], datasets:[{ data: [3] }]},
+              options: { responsive:true, plugins:{legend:{position:'right'}}}
+            });
+
+          } catch (e) {
+            console.error('Chart draw error', e);
+          } finally {
+            // signal to puppeteer that charts were rendered
+            window.__CHARTS_RENDERED__ = true;
+          }
+        }
+
+        loadScript('https://cdn.jsdelivr.net/npm/chart.js').then(drawAll).catch((err) => {
+          console.error('Failed to load Chart.js', err);
+          window.__CHARTS_RENDERED__ = true;
+        });
+      })();
+    </script>
+        </body>
+      </html>
+    

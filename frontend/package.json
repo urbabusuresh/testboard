@@ -1,0 +1,50 @@
+{
+  "name": "raptr-automation-frontend",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbopack -p 6222",
+    "build": "next build",
+    "start": "next start -p 6222",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@heroui/react": "^2.6.11",
+    "@heroui/system": "^2.4.10",
+    "@heroui/theme": "^2.4.10",
+    "@react-aria/ssr": "^3.9.7",
+    "@react-aria/visually-hidden": "^3.8.19",
+    "@tinymce/tinymce-react": "^6.3.0",
+    "@types/node": "22.13.5",
+    "@types/react": "18.3.18",
+    "@types/react-dom": "18.3.5",
+    "apexcharts": "^4.7.0",
+    "autoprefixer": "10.4.20",
+    "boring-avatars": "^1.11.2",
+    "clsx": "^2.1.1",
+    "dayjs": "^1.11.13",
+    "framer-motion": "^11.18.2",
+    "html2canvas": "^1.4.1",
+    "intl-messageformat": "^10.7.15",
+    "jspdf": "^3.0.3",
+    "lucide-react": "^0.539.0",
+    "next": "^15.5.0",
+    "next-intl": "^3.26.5",
+    "next-themes": "^0.4.4",
+    "postcss": "8.5.3",
+    "react": "^19.1.1",
+    "react-apexcharts": "^1.7.0",
+    "react-arborist": "^3.4.3",
+    "react-datepicker": "^8.7.0",
+    "react-dom": "^19.1.1",
+    "recharts": "^3.3.0",
+    "sharp": "^0.33.5",
+    "tailwind-variants": "^0.3.1",
+    "tailwindcss": "^3.4.18",
+    "typescript": "5.7.3",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "eslint": "^9.34.0"
+  }
+}
