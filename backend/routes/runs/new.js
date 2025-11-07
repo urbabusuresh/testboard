@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { DataTypes } = require('sequelize');
 const defineRun = require('../../models/runs');
+const { validateRequiredFields, validateTestRunData } = require('../../utils/validators');
 
 module.exports = function (sequelize) {
   const { verifySignedIn } = require('../../middleware/auth')(sequelize);
@@ -12,8 +13,23 @@ module.exports = function (sequelize) {
     try {
       const projectId = req.query.projectId;
       const { name, configurations, description, state } = req.body;
-      if (!name || !projectId) {
-        return res.status(400).json({ error: 'Name and projectId are required' });
+      
+      // Validate required fields
+      const requiredValidation = validateRequiredFields(req.body, ['name']);
+      if (!requiredValidation.isValid || !projectId) {
+        return res.status(400).json({
+          error: 'Missing required fields',
+          missingFields: !projectId ? [...requiredValidation.missingFields, 'projectId'] : requiredValidation.missingFields,
+        });
+      }
+      
+      // Validate test run data
+      const dataValidation = validateTestRunData({ name, description, state });
+      if (!dataValidation.isValid) {
+        return res.status(400).json({
+          error: 'Validation failed',
+          errors: dataValidation.errors,
+        });
       }
 
       const newRun = await Run.create({

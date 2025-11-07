@@ -52,6 +52,28 @@ function defineCase(sequelize, DataTypes) {
       type: DataTypes.STRING,
       allowNull: true,
     },
+    assignedTo: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'users',
+        key: 'id',
+      },
+      onDelete: 'SET NULL',
+    },
+    workflowStatus: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      defaultValue: 'draft',
+    },
+    estimatedHours: {
+      type: DataTypes.FLOAT,
+      allowNull: true,
+    },
+    actualHours: {
+      type: DataTypes.FLOAT,
+      allowNull: true,
+    },
     folderId: {
       type: DataTypes.INTEGER,
       allowNull: false,
@@ -67,6 +89,11 @@ function defineCase(sequelize, DataTypes) {
     Case.belongsTo(models.Folder, {
       foreignKey: 'folderId',
       onDelete: 'CASCADE',
+    });
+    Case.belongsTo(models.User, {
+      foreignKey: 'assignedTo',
+      as: 'assignee',
+      onDelete: 'SET NULL',
     });
     Case.belongsToMany(models.Step, {
       through: 'caseSteps',

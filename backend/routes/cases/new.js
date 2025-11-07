@@ -2,16 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { DataTypes } = require('sequelize');
 const defineCase = require('../../models/cases');
-
-const requiredFields = ['title', 'state', 'priority', 'type', 'automationStatus', 'template'];
-
-function isEmpty(value) {
-  if (value === null || value === undefined) {
-    return true;
-  } else {
-    return false;
-  }
-}
+const { validateRequiredFields, validateTestCaseData } = require('../../utils/validators');
 
 module.exports = function (sequelize) {
   const { verifySignedIn } = require('../../middleware/auth')(sequelize);
@@ -22,18 +13,41 @@ module.exports = function (sequelize) {
     const folderId = req.query.folderId;
 
     try {
-      if (
-        requiredFields.some((field) => {
-          return isEmpty(req.body[field]);
-        })
-      ) {
+      // Validate required fields
+      const requiredValidation = validateRequiredFields(req.body, [
+        'title',
+        'state',
+        'priority',
+        'type',
+        'automationStatus',
+        'template',
+      ]);
+      if (!requiredValidation.isValid) {
         return res.status(400).json({
-          error: 'Title, state, priority, type, automationStatus, and template are required',
+          error: 'Missing required fields',
+          missingFields: requiredValidation.missingFields,
         });
       }
 
       const { title, state, priority, type, automationStatus, description, template, preConditions, expectedResults } =
         req.body;
+      
+      // Validate test case data
+      const dataValidation = validateTestCaseData({
+        title,
+        state,
+        priority,
+        type,
+        automationStatus,
+        template,
+        description,
+      });
+      if (!dataValidation.isValid) {
+        return res.status(400).json({
+          error: 'Validation failed',
+          errors: dataValidation.errors,
+        });
+      }
 
       const newCase = await Case.create({
         title,

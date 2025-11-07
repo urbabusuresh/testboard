@@ -69,6 +69,8 @@ export default function Sidebar({ messages, locale }: Props) {
     | { section: string; items: Array<{ key: string; text: string; Icon: any; color: string }> }
   > = [
     { key: 'home', text: messages.home, Icon: Home, color: '#7c3aed' },
+    { key: 'dashboard', text: 'Dashboard', Icon: Layers, color: '#3b82f6' },
+    { key: 'kanban', text: 'Kanban Board', Icon: ClipboardList, color: '#10b981' },
     // { key: 'cases', text: messages.testCases, Icon: FileText, color: '#38bdf8' },
     
     {
@@ -102,6 +104,8 @@ export default function Sidebar({ messages, locale }: Props) {
     const base = `/projects/${projectId}`;
     const routes: Record<string, string> = {
       home: `${base}/home`,
+      dashboard: `${base}/dashboard`,
+      kanban: `${base}/kanban`,
       cases: `${base}/folders`,
       runs: `${base}/runs`,
       members: `${base}/members`,

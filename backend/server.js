@@ -219,6 +219,18 @@ app.use("/api/rawuploads", rawUploadsRoutes);
 const reportsRouter = require('./routes/kpis/overallReport')(sequelize);
 app.use('/api/reports', reportsRouter);
 
+// Kanban board routes
+const kanbanRouter = require('./routes/kanban/index')(sequelize);
+app.use('/api/kanban', kanbanRouter);
+
+// Assignment routes
+const assignmentsRouter = require('./routes/assignments/index')(sequelize);
+app.use('/api/assignments', assignmentsRouter);
+
+// Dashboard routes
+const dashboardRouter = require('./routes/dashboard/index')(sequelize);
+app.use('/api/dashboard', dashboardRouter);
+
 // after you created `const app = express();` and mounted routes:
 const swaggerUi = require('swagger-ui-express');
  
