@@ -4,8 +4,6 @@ const { DataTypes } = require('sequelize');
 const defineCase = require('../../models/cases');
 const { validateRequiredFields, validateTestCaseData } = require('../../utils/validators');
 
-const requiredFields = ['title', 'state', 'priority', 'type', 'automationStatus', 'template'];
-
 module.exports = function (sequelize) {
   const { verifySignedIn } = require('../../middleware/auth')(sequelize);
   const { verifyProjectDeveloperFromFolderId } = require('../../middleware/verifyEditable')(sequelize);
@@ -16,7 +14,14 @@ module.exports = function (sequelize) {
 
     try {
       // Validate required fields
-      const requiredValidation = validateRequiredFields(req.body, requiredFields);
+      const requiredValidation = validateRequiredFields(req.body, [
+        'title',
+        'state',
+        'priority',
+        'type',
+        'automationStatus',
+        'template',
+      ]);
       if (!requiredValidation.isValid) {
         return res.status(400).json({
           error: 'Missing required fields',
