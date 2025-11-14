@@ -1,0 +1,754 @@
+// This is your Prisma schema file for the comprehensive Testing Dashboard Platform
+// Based on the design document for telecom-grade testing, project management, and ticketing
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// CORE ENTITIES: Users, Organizations, Projects
+// ============================================================================
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  username  String   @unique
+  password  String
+  firstName String?
+  lastName  String?
+  role      String   @default("tester") // admin, manager, tester, developer, viewer, reporter
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  createdProjects     Project[]               @relation("ProjectCreator")
+  assignedTestCases   TestCaseVersion[]       @relation("TestCaseAssignee")
+  assignedDefects     Defect[]                @relation("DefectAssignee")
+  executionRuns       ExecutionRun[]          @relation("ExecutionRunExecutor")
+  workflowTransitions WorkflowTransitionLog[] @relation("WorkflowTransitioner")
+  auditLogs           AuditLog[]              @relation("AuditLogUser")
+  flowExecutions      FlowExecution[]         @relation("FlowExecutor")
+  projectMembers      ProjectMember[]
+
+  @@map("users")
+}
+
+model Project {
+  id          Int       @id @default(autoincrement())
+  name        String
+  description String?   @db.Text
+  isPublic    Boolean   @default(false)
+  methodology String? // agile, waterfall, hybrid, scrum
+  status      String    @default("active") // active, on-hold, completed, archived
+  startDate   DateTime?
+  endDate     DateTime?
+  createdBy   Int
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  metadata    Json? // Custom fields
+
+  // Relations
+  creator      User            @relation("ProjectCreator", fields: [createdBy], references: [id], onDelete: Cascade)
+  products     Product[]
+  requirements Requirement[]
+  testCycles   TestCycle[]
+  defects      Defect[]
+  milestones   Milestone[]
+  risks        Risk[]
+  members      ProjectMember[]
+  baselines    Baseline[]
+
+  @@index([createdBy])
+  @@index([status])
+  @@map("projects")
+}
+
+model ProjectMember {
+  id        Int      @id @default(autoincrement())
+  projectId Int
+  userId    Int
+  role      String // ProjectManager, TestManager, Developer, Tester
+  joinedAt  DateTime @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, userId])
+  @@map("project_members")
+}
+
+// ============================================================================
+// HIERARCHICAL NODE SYSTEM: Product → Module → Feature → UseCase → Scenario
+// ============================================================================
+
+model HierarchyNode {
+  id                Int      @id @default(autoincrement())
+  parentId          Int?
+  type              String // product, module, submodule, feature, usecase, scenario
+  title             String
+  description       String?  @db.Text
+  orderIndex        Int      @default(0)
+  metadata          Json? // Custom fields per node type
+  status            String   @default("active")
+  version           Int      @default(1)
+  previousVersionId Int?
+  createdBy         Int
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // Relations
+  parent          HierarchyNode?    @relation("NodeHierarchy", fields: [parentId], references: [id], onDelete: Cascade)
+  children        HierarchyNode[]   @relation("NodeHierarchy")
+  previousVersion HierarchyNode?    @relation("NodeVersion", fields: [previousVersionId], references: [id])
+  versions        HierarchyNode[]   @relation("NodeVersion")
+  requirements    Requirement[]
+  testCases       TestCaseVersion[]
+
+  @@index([parentId])
+  @@index([type])
+  @@index([status])
+  @@map("hierarchy_nodes")
+}
+
+model Product {
+  id          Int      @id @default(autoincrement())
+  projectId   Int
+  name        String
+  description String?  @db.Text
+  version     String?
+  status      String   @default("active")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  project  Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  modules  Module[]
+  releases Release[]
+
+  @@index([projectId])
+  @@map("products")
+}
+
+model Module {
+  id          Int      @id @default(autoincrement())
+  productId   Int
+  name        String
+  description String?  @db.Text
+  type        String? // Custom module types for telecom
+  status      String   @default("active")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  releases   Release[]
+  testCycles TestCycle[]
+
+  @@index([productId])
+  @@map("modules")
+}
+
+model Release {
+  id          Int       @id @default(autoincrement())
+  productId   Int
+  moduleId    Int?
+  version     String
+  name        String?
+  description String?   @db.Text
+  startDate   DateTime?
+  endDate     DateTime?
+  status      String    @default("planned") // planned, in-progress, testing, released, closed
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  product          Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  module           Module?           @relation(fields: [moduleId], references: [id])
+  requirements     Requirement[]
+  testCaseVersions TestCaseVersion[]
+  baselines        Baseline[]
+
+  @@index([productId])
+  @@index([moduleId])
+  @@index([status])
+  @@map("releases")
+}
+
+// ============================================================================
+// REQUIREMENTS MANAGEMENT WITH VERSIONING
+// ============================================================================
+
+model Requirement {
+  id                Int       @id @default(autoincrement())
+  projectId         Int
+  releaseId         Int?
+  hierarchyNodeId   Int?
+  title             String
+  description       String?   @db.Text
+  type              String // BRD, FRD, UserStory, Epic
+  priority          String    @default("medium") // low, medium, high, critical
+  status            String    @default("draft") // draft, review, approved, rejected, implemented
+  version           Int       @default(1)
+  previousVersionId Int?
+  changeNote        String?   @db.Text
+  createdBy         Int
+  approvedBy        Int?
+  approvedAt        DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  metadata          Json?
+
+  // Relations
+  project         Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  release         Release?       @relation(fields: [releaseId], references: [id])
+  hierarchyNode   HierarchyNode? @relation(fields: [hierarchyNodeId], references: [id])
+  previousVersion Requirement?   @relation("RequirementVersion", fields: [previousVersionId], references: [id])
+  versions        Requirement[]  @relation("RequirementVersion")
+  artifactLinks   ArtifactLink[] @relation("RequirementLinks")
+
+  @@index([projectId])
+  @@index([releaseId])
+  @@index([hierarchyNodeId])
+  @@index([status])
+  @@map("requirements")
+}
+
+// ============================================================================
+// TEST CASE MANAGEMENT WITH VERSIONING
+// ============================================================================
+
+model TestCaseVersion {
+  id                Int      @id @default(autoincrement())
+  testCaseId        Int? // Logical grouping ID
+  hierarchyNodeId   Int?
+  releaseId         Int?
+  title             String
+  description       String?  @db.Text
+  priority          String   @default("medium") // low, medium, high, critical
+  severity          String   @default("medium")
+  type              String? // functional, integration, regression, smoke, etc.
+  automationStatus  String   @default("manual") // manual, automated, partial
+  version           Int      @default(1)
+  status            String   @default("active") // active, retired, deprecated
+  previousVersionId Int?
+  changeNote        String?  @db.Text
+  preConditions     String?  @db.Text
+  expectedResults   String?  @db.Text
+  assignedTo        Int?
+  workflowStatus    String   @default("draft") // draft, ready, in-progress, review, completed
+  estimatedHours    Float?
+  actualHours       Float?
+  flakinessScore    Float?   @default(0)
+  createdBy         Int
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  metadata          Json?
+
+  // Relations
+  hierarchyNode      HierarchyNode?      @relation(fields: [hierarchyNodeId], references: [id])
+  release            Release?            @relation(fields: [releaseId], references: [id])
+  assignee           User?               @relation("TestCaseAssignee", fields: [assignedTo], references: [id], onDelete: SetNull)
+  previousVersion    TestCaseVersion?    @relation("TestCaseVersionHistory", fields: [previousVersionId], references: [id])
+  versions           TestCaseVersion[]   @relation("TestCaseVersionHistory")
+  steps              TestCaseStep[]
+  executionRuns      ExecutionRun[]
+  artifactLinks      ArtifactLink[]      @relation("TestCaseLinks")
+  automationBindings AutomationBinding[]
+  flowSteps          FlowStep[]
+
+  @@index([testCaseId])
+  @@index([hierarchyNodeId])
+  @@index([releaseId])
+  @@index([assignedTo])
+  @@index([workflowStatus])
+  @@index([status])
+  @@map("test_case_versions")
+}
+
+model TestCaseStep {
+  id                Int     @id @default(autoincrement())
+  testCaseVersionId Int
+  stepNo            Int
+  action            String  @db.Text
+  expectedResult    String? @db.Text
+  notes             String? @db.Text
+
+  testCaseVersion TestCaseVersion @relation(fields: [testCaseVersionId], references: [id], onDelete: Cascade)
+
+  @@index([testCaseVersionId])
+  @@map("test_case_steps")
+}
+
+// ============================================================================
+// TEST EXECUTION & CYCLES
+// ============================================================================
+
+model TestCycle {
+  id          Int       @id @default(autoincrement())
+  projectId   Int
+  moduleId    Int?
+  name        String
+  description String?   @db.Text
+  environment String? // dev, staging, production
+  startDate   DateTime?
+  endDate     DateTime?
+  status      String    @default("planned") // planned, in-progress, completed, cancelled
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  project       Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  module        Module?        @relation(fields: [moduleId], references: [id])
+  executionRuns ExecutionRun[]
+
+  @@index([projectId])
+  @@index([moduleId])
+  @@index([status])
+  @@map("test_cycles")
+}
+
+model ExecutionRun {
+  id                Int      @id @default(autoincrement())
+  testCaseVersionId Int
+  cycleId           Int?
+  executedBy        Int
+  executedOn        DateTime @default(now())
+  result            String // pass, fail, blocked, skipped
+  duration          Int? // in seconds
+  environment       String?
+  browserDevice     String?
+  evidence          Json? // Screenshots, logs, artifacts
+  notes             String?  @db.Text
+  source            String   @default("manual") // manual, automation, ci
+
+  // Relations
+  testCaseVersion TestCaseVersion @relation(fields: [testCaseVersionId], references: [id], onDelete: Cascade)
+  cycle           TestCycle?      @relation(fields: [cycleId], references: [id])
+  executor        User            @relation("ExecutionRunExecutor", fields: [executedBy], references: [id])
+  defects         Defect[]        @relation("ExecutionDefects")
+
+  @@index([testCaseVersionId])
+  @@index([cycleId])
+  @@index([executedBy])
+  @@index([result])
+  @@index([executedOn])
+  @@map("execution_runs")
+}
+
+// ============================================================================
+// DEFECT/TICKET MANAGEMENT
+// ============================================================================
+
+model Defect {
+  id                 Int       @id @default(autoincrement())
+  projectId          Int
+  executionRunId     Int?
+  title              String
+  description        String?   @db.Text
+  severity           String    @default("medium") // low, medium, high, critical
+  priority           String    @default("medium")
+  state              String    @default("new") // new, open, in-progress, fixed, retest, closed, rejected
+  assignedTo         Int?
+  reportedBy         Int
+  reportedAt         DateTime  @default(now())
+  resolvedAt         DateTime?
+  closedAt           DateTime?
+  environment        String?
+  stepsToReproduce   String?   @db.Text
+  actualResult       String?   @db.Text
+  expectedResult     String?   @db.Text
+  externalTicketRefs Json? // [{tool: "jira", id: "PROJ-123", url: "..."}]
+  slaViolation       Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  metadata           Json?
+
+  // Relations
+  project       Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  executionRun  ExecutionRun?  @relation("ExecutionDefects", fields: [executionRunId], references: [id])
+  assignee      User?          @relation("DefectAssignee", fields: [assignedTo], references: [id], onDelete: SetNull)
+  artifactLinks ArtifactLink[] @relation("DefectLinks")
+
+  @@index([projectId])
+  @@index([executionRunId])
+  @@index([assignedTo])
+  @@index([state])
+  @@index([severity])
+  @@index([priority])
+  @@map("defects")
+}
+
+// ============================================================================
+// ARTIFACT LINKING (Many-to-Many cross-references)
+// ============================================================================
+
+model ArtifactLink {
+  id           Int      @id @default(autoincrement())
+  fromType     String // requirement, testcase, defect, etc.
+  fromId       Int
+  toType       String
+  toId         Int
+  relationType String // implements, verifies, blocks, duplicates, impacted-by, etc.
+  createdBy    Int
+  createdAt    DateTime @default(now())
+
+  // Optional typed relations (for referential integrity where applicable)
+  fromRequirement Requirement?     @relation("RequirementLinks", fields: [fromId], references: [id], map: "fk_requirement_from")
+  toTestCase      TestCaseVersion? @relation("TestCaseLinks", fields: [toId], references: [id], map: "fk_testcase_to")
+  toDefect        Defect?          @relation("DefectLinks", fields: [toId], references: [id], map: "fk_defect_to")
+
+  @@index([fromType, fromId])
+  @@index([toType, toId])
+  @@index([relationType])
+  @@map("artifact_links")
+}
+
+// ============================================================================
+// FLOW ENGINE (E2E Flow Management)
+// ============================================================================
+
+model FlowMaster {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String?  @db.Text
+  type        String? // customer-onboarding, billing-flow, etc.
+  status      String   @default("active")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  metadata    Json?
+
+  // Relations
+  steps      FlowStep[]
+  executions FlowExecution[]
+
+  @@map("flow_masters")
+}
+
+model FlowStep {
+  id               Int     @id @default(autoincrement())
+  flowId           Int
+  orderIndex       Int
+  linkedEntityType String // testcase, scenario, subflow
+  linkedEntityId   Int
+  mandatory        Boolean @default(true)
+  condition        Json? // Conditional logic
+  retryPolicy      Json? // Retry configuration
+  timeout          Int? // Timeout in seconds
+
+  // Relations
+  flow           FlowMaster          @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  linkedTestCase TestCaseVersion?    @relation(fields: [linkedEntityId], references: [id], map: "fk_flow_testcase")
+  stepExecutions FlowStepExecution[]
+
+  @@index([flowId])
+  @@index([orderIndex])
+  @@map("flow_steps")
+}
+
+model FlowExecution {
+  id          Int       @id @default(autoincrement())
+  flowId      Int
+  executedBy  Int
+  startedAt   DateTime  @default(now())
+  completedAt DateTime?
+  status      String // running, completed, failed, aborted
+  result      String? // pass, fail, partial
+  environment String?
+  logs        String?   @db.Text
+
+  // Relations
+  flow           FlowMaster          @relation(fields: [flowId], references: [id], onDelete: Cascade)
+  executor       User                @relation("FlowExecutor", fields: [executedBy], references: [id])
+  stepExecutions FlowStepExecution[]
+
+  @@index([flowId])
+  @@index([executedBy])
+  @@index([status])
+  @@map("flow_executions")
+}
+
+model FlowStepExecution {
+  id              Int       @id @default(autoincrement())
+  flowExecutionId Int
+  flowStepId      Int
+  status          String // pending, running, passed, failed, skipped
+  startedAt       DateTime?
+  completedAt     DateTime?
+  result          String?
+  logs            String?   @db.Text
+
+  // Relations
+  flowExecution FlowExecution @relation(fields: [flowExecutionId], references: [id], onDelete: Cascade)
+  flowStep      FlowStep      @relation(fields: [flowStepId], references: [id], onDelete: Cascade)
+
+  @@index([flowExecutionId])
+  @@index([flowStepId])
+  @@map("flow_step_executions")
+}
+
+// ============================================================================
+// WORKFLOW ENGINE (Dynamic Workflow Definitions)
+// ============================================================================
+
+model Workflow {
+  id          Int      @id @default(autoincrement())
+  name        String
+  entityType  String // requirement, testcase, defect
+  description String?  @db.Text
+  definition  Json // JSON workflow definition
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  transitionLogs WorkflowTransitionLog[]
+
+  @@index([entityType])
+  @@map("workflows")
+}
+
+model WorkflowTransitionLog {
+  id             Int      @id @default(autoincrement())
+  workflowId     Int
+  entityType     String
+  entityId       Int
+  fromState      String
+  toState        String
+  transitionedBy Int
+  transitionedAt DateTime @default(now())
+  notes          String?  @db.Text
+
+  // Relations
+  workflow     Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  transitioner User     @relation("WorkflowTransitioner", fields: [transitionedBy], references: [id])
+
+  @@index([workflowId])
+  @@index([entityType, entityId])
+  @@index([transitionedBy])
+  @@map("workflow_transition_logs")
+}
+
+// ============================================================================
+// PROJECT PLANNING: MILESTONES, RISKS & MITIGATION
+// ============================================================================
+
+model Milestone {
+  id              Int       @id @default(autoincrement())
+  projectId       Int
+  name            String
+  description     String?   @db.Text
+  type            String? // requirements-completion, module-readiness, test-cycle-completion
+  targetDate      DateTime
+  actualDate      DateTime?
+  status          String    @default("planned") // planned, on-track, at-risk, delayed, completed
+  linkedArtifacts Json? // Links to requirements, modules, test cycles
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([status])
+  @@index([targetDate])
+  @@map("milestones")
+}
+
+model Risk {
+  id              Int       @id @default(autoincrement())
+  projectId       Int
+  title           String
+  description     String?   @db.Text
+  category        String // technical, project, resource, vendor, integration, regulatory
+  probability     String    @default("medium") // low, medium, high
+  impact          String    @default("medium") // low, medium, high
+  riskScore       Float? // Calculated RPN = probability * impact
+  status          String    @default("open") // open, mitigated, closed, accepted
+  linkedArtifacts Json? // Links to modules, requirements, test cycles
+  identifiedAt    DateTime  @default(now())
+  closedAt        DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  mitigations Mitigation[]
+
+  @@index([projectId])
+  @@index([status])
+  @@index([category])
+  @@map("risks")
+}
+
+model Mitigation {
+  id            Int      @id @default(autoincrement())
+  riskId        Int
+  description   String   @db.Text
+  owner         String?
+  timeline      String?
+  effectiveness String? // effective, partially-effective, ineffective
+  status        String   @default("planned") // planned, in-progress, completed
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  risk Risk @relation(fields: [riskId], references: [id], onDelete: Cascade)
+
+  @@index([riskId])
+  @@map("mitigations")
+}
+
+// ============================================================================
+// AUTOMATION ORCHESTRATION
+// ============================================================================
+
+model AutomationSuite {
+  id            Int      @id @default(autoincrement())
+  name          String
+  description   String?  @db.Text
+  repoUrl       String?
+  defaultRunner String? // shell, docker, node, python, etc.
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  cases AutomationCase[]
+
+  @@map("automation_suites")
+}
+
+model AutomationCase {
+  id               Int      @id @default(autoincrement())
+  suiteId          Int?
+  externalId       String?
+  title            String
+  commandTemplate  String   @db.Text // e.g., "npm run e2e -- --spec={{specPath}}"
+  workingDirectory String?
+  runtimeEnv       Json? // Environment variables
+  timeout          Int? // Timeout in seconds
+  language         String? // node, python, java, ruby, go, dotnet
+  tags             String?
+  defaultRunner    String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  // Relations
+  suite    AutomationSuite?    @relation(fields: [suiteId], references: [id])
+  bindings AutomationBinding[]
+  runs     AutomationRun[]
+
+  @@index([suiteId])
+  @@map("automation_cases")
+}
+
+model AutomationBinding {
+  id                Int      @id @default(autoincrement())
+  automationCaseId  Int
+  testCaseVersionId Int
+  createdAt         DateTime @default(now())
+
+  // Relations
+  automationCase  AutomationCase  @relation(fields: [automationCaseId], references: [id], onDelete: Cascade)
+  testCaseVersion TestCaseVersion @relation(fields: [testCaseVersionId], references: [id], onDelete: Cascade)
+
+  @@unique([automationCaseId, testCaseVersionId])
+  @@index([testCaseVersionId])
+  @@map("automation_bindings")
+}
+
+model AutomationRun {
+  id               Int       @id @default(autoincrement())
+  automationCaseId Int
+  triggeredBy      String? // manual, schedule, ci, flow
+  startedAt        DateTime  @default(now())
+  completedAt      DateTime?
+  status           String // queued, running, passed, failed, timeout, cancelled
+  exitCode         Int?
+  stdout           String?   @db.Text
+  stderr           String?   @db.Text
+  artifacts        Json? // Links to reports, screenshots
+  environment      String?
+
+  // Relations
+  automationCase AutomationCase @relation(fields: [automationCaseId], references: [id], onDelete: Cascade)
+
+  @@index([automationCaseId])
+  @@index([status])
+  @@index([startedAt])
+  @@map("automation_runs")
+}
+
+// ============================================================================
+// BASELINES & COMPLIANCE
+// ============================================================================
+
+model Baseline {
+  id          Int       @id @default(autoincrement())
+  projectId   Int
+  releaseId   Int?
+  name        String
+  description String?   @db.Text
+  type        String // module-baseline, release-baseline, audit-baseline
+  frozenAt    DateTime?
+  isFrozen    Boolean   @default(false)
+  snapshot    Json? // Snapshot of linked artifacts
+  createdBy   Int
+  createdAt   DateTime  @default(now())
+
+  // Relations
+  project Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  release Release? @relation(fields: [releaseId], references: [id])
+
+  @@index([projectId])
+  @@index([releaseId])
+  @@map("baselines")
+}
+
+// ============================================================================
+// AUDIT LOG (CMMI Compliance)
+// ============================================================================
+
+model AuditLog {
+  id            Int      @id @default(autoincrement())
+  entityType    String
+  entityId      Int
+  operation     String // CREATE, UPDATE, DELETE, CLONE, APPROVE
+  changedBy     Int
+  changedAt     DateTime @default(now())
+  changeSummary String?  @db.Text
+  previousValue Json?
+  newValue      Json?
+
+  // Relations
+  user User @relation("AuditLogUser", fields: [changedBy], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([changedBy])
+  @@index([changedAt])
+  @@map("audit_logs")
+}
+
+// ============================================================================
+// REFERENCE DOCUMENTS
+// ============================================================================
+
+model ReferenceDocument {
+  id                 Int      @id @default(autoincrement())
+  title              String
+  url                String?
+  docType            String? // specification, design, api-doc, etc.
+  linkedArtifactType String?
+  linkedArtifactId   Int?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([linkedArtifactType, linkedArtifactId])
+  @@map("reference_documents")
+}
