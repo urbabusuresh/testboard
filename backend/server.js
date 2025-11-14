@@ -231,6 +231,40 @@ app.use('/api/assignments', assignmentsRouter);
 const dashboardRouter = require('./routes/dashboard/index')(sequelize);
 app.use('/api/dashboard', dashboardRouter);
 
+// ============================================================================
+// NEW COMPREHENSIVE PLATFORM ROUTES (Prisma-based)
+// ============================================================================
+
+// Hierarchy Node Management (Product → Module → Feature → UseCase → Scenario)
+const hierarchyRouter = require('./routes/hierarchy/index');
+app.use('/api/hierarchy', hierarchyRouter);
+
+// Requirements Management with Versioning
+const requirementsRouter = require('./routes/requirements/index');
+app.use('/api/requirements', requirementsRouter);
+
+// Flow Engine (E2E Flow Management)
+const flowsRouter = require('./routes/flows/index');
+app.use('/api/flows', flowsRouter);
+
+// Project Planning: Milestones
+const milestonesRouter = require('./routes/milestones/index');
+app.use('/api/milestones', milestonesRouter);
+
+// Risk Management with Mitigation Tracking
+const risksRouter = require('./routes/risks/index');
+app.use('/api/risks', risksRouter);
+
+// Traceability & Reporting (RTM, Coverage, Release Readiness)
+const traceabilityRouter = require('./routes/traceability/index');
+app.use('/api/traceability', traceabilityRouter);
+
+// Permission Management (Module-level Role Access)
+const permissionsRouter = require('./routes/permissions/index');
+app.use('/api/permissions', permissionsRouter);
+
+// ============================================================================
+
 // after you created `const app = express();` and mounted routes:
 const swaggerUi = require('swagger-ui-express');
  
