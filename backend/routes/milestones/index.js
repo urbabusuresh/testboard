@@ -6,7 +6,7 @@
 const express = require('express');
 const router = express.Router();
 const prisma = require('../../lib/prisma');
-const { authenticateToken } = require('../../middleware/auth');
+const { authenticateToken } = require('../../middleware/prismaAuth');
 
 // Get all milestones
 router.get('/', authenticateToken, async (req, res) => {

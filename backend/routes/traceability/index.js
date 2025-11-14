@@ -6,7 +6,7 @@
 const express = require('express');
 const router = express.Router();
 const prisma = require('../../lib/prisma');
-const { authenticateToken } = require('../../middleware/auth');
+const { authenticateToken } = require('../../middleware/prismaAuth');
 
 // Get Requirements Traceability Matrix (RTM)
 router.get('/rtm', authenticateToken, async (req, res) => {
