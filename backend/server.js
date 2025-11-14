@@ -259,6 +259,10 @@ app.use('/api/risks', risksRouter);
 const traceabilityRouter = require('./routes/traceability/index');
 app.use('/api/traceability', traceabilityRouter);
 
+// Permission Management (Module-level Role Access)
+const permissionsRouter = require('./routes/permissions/index');
+app.use('/api/permissions', permissionsRouter);
+
 // ============================================================================
 
 // after you created `const app = express();` and mounted routes:
